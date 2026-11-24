@@ -64,6 +64,14 @@ createdb locadora
 psql -d locadora -f sql/01_schema.sql
 psql -d locadora -f sql/02_dados.sql
 psql -d locadora -f sql/03_consultas.sql
+psql -d locadora -f sql/04_views.sql
+```
+
+Para rodar os testes automatizados (cada teste roda dentro de uma transação e desfaz tudo no final, sem sujar o banco):
+
+```bash
+psql -d locadora -v ON_ERROR_STOP=1 -f testes/teste_04_views.sql
+# saída esperada: OK: todos os testes das views passaram.
 ```
 
 ## 📁 Estrutura
@@ -74,7 +82,25 @@ locadora-filmes/
 └── sql/
     ├── 01_schema.sql      # tabelas, chaves e restrições
     ├── 02_dados.sql       # dados de exemplo (fictícios)
-    └── 03_consultas.sql   # consultas de negócio
+    ├── 03_consultas.sql   # consultas de negócio
+    └── 04_views.sql       # views para relatórios
+└── testes/
+    └── teste_04_views.sql # testes das views com ASSERT
+```
+
+## 📊 Views para relatórios
+
+| View | Para que serve |
+|------|----------------|
+| `vw_filmes_disponiveis` | Filmes com pelo menos uma cópia livre, com gêneros e quantidade de cópias |
+| `vw_locacoes_em_aberto` | Locações ainda não devolvidas, com dias de atraso calculados |
+| `vw_locacoes_atrasadas` | Lista de cobrança (com telefone) — view construída sobre a anterior |
+| `vw_resumo_clientes` | Total locado, total pago e saldo devedor de cada cliente |
+
+```sql
+SELECT cliente, telefone, titulo, dias_atraso
+FROM vw_locacoes_atrasadas
+ORDER BY dias_atraso DESC;
 ```
 
 ## 🔍 Exemplo de consulta
@@ -94,15 +120,16 @@ ORDER BY dias_atraso DESC;
 
 ## 🛣️ Próximos passos
 
-- [ ] Views para relatórios (`vw_filmes_disponiveis`, `vw_locacoes_atrasadas`)
+- [x] Views para relatórios (`vw_filmes_disponiveis`, `vw_locacoes_em_aberto`, `vw_locacoes_atrasadas`, `vw_resumo_clientes`) + testes
 - [ ] Função para calcular multa por atraso
 - [ ] Trigger que atualiza a disponibilidade da cópia automaticamente
 - [ ] Procedure para registrar locação e devolução
+- [ ] Rodar os testes SQL automaticamente no GitHub Actions (CI com PostgreSQL)
 - [ ] Interface em Python para consultar o banco
 
 ## 🛠️ Tecnologias
 
-PostgreSQL · SQL
+PostgreSQL · SQL · PL/pgSQL (testes com ASSERT)
 
 ---
 Feito por **Matheus de Freitas Cunha**

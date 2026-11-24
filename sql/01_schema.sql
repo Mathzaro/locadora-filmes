@@ -5,13 +5,15 @@
 -- Banco: PostgreSQL 14+
 -- =============================================================
 
-DROP TABLE IF EXISTS pagamento;
-DROP TABLE IF EXISTS locacao;
-DROP TABLE IF EXISTS copia;
-DROP TABLE IF EXISTS filme_genero;
-DROP TABLE IF EXISTS filme;
-DROP TABLE IF EXISTS genero;
-DROP TABLE IF EXISTS cliente;
+-- CASCADE também remove as views que dependem das tabelas (04_views.sql),
+-- permitindo rodar o script de novo sem erro.
+DROP TABLE IF EXISTS pagamento CASCADE;
+DROP TABLE IF EXISTS locacao CASCADE;
+DROP TABLE IF EXISTS copia CASCADE;
+DROP TABLE IF EXISTS filme_genero CASCADE;
+DROP TABLE IF EXISTS filme CASCADE;
+DROP TABLE IF EXISTS genero CASCADE;
+DROP TABLE IF EXISTS cliente CASCADE;
 
 -- Clientes cadastrados na locadora
 CREATE TABLE cliente (
