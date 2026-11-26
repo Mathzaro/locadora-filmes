@@ -42,3 +42,41 @@ Exercício: troque a `vw_resumo_clientes` por uma versão com um JOIN só entre 
 
 2. **Por que você não fez um JOIN só entre cliente, locação e pagamento no resumo financeiro?**
    Porque uma locação com dois pagamentos apareceria duas vezes no resultado e o `SUM(valor_total)` ficaria em dobro. Por isso somei locações e pagamentos separadamente (em CTEs agrupadas por cliente) e só depois juntei — e escrevi um teste com dois pagamentos na mesma locação para provar que o valor está certo.
+
+---
+
+## 26/11/2026 — Funções de dias de atraso e multa
+
+### O que mudou
+- Novo arquivo `sql/05_funcoes.sql` com 3 funções:
+  - `fn_taxa_multa()` — devolve a taxa 1,5 (diária + 50%), guardada em um lugar só;
+  - `fn_dias_atraso(prevista, devolucao, referencia)` — dias de atraso, nunca negativo;
+  - `fn_calcular_multa(id_locacao, referencia)` — busca a locação e a diária do filme e devolve a multa em reais.
+- Novo arquivo `testes/teste_05_funcoes.sql`: testa atraso, devolução no prazo e antes do prazo, locação já devolvida (a multa não cresce com o tempo), simulação com data futura, erro para locação inexistente e se a função concorda com a `vw_locacoes_em_aberto`.
+- README com a seção "Multa por atraso" e o item marcado em "Próximos passos".
+
+### Por que
+O cálculo de atraso já existia dentro da view, mas a multa ia precisar ser repetida em relatórios, na futura procedure de devolução e em qualquer aplicação que use o banco. Com a regra em uma função, todos chamam o mesmo código e, se a taxa mudar, muda em um lugar só. O parâmetro `p_data_referencia` permite simular ("quanto vai dar se devolver dia 30?") e deixa a função fácil de testar.
+
+### Conceitos envolvidos
+- **`CREATE FUNCTION` em `LANGUAGE sql` x `plpgsql`:** SQL puro para cálculos simples; PL/pgSQL quando preciso de variáveis, `IF` e `RAISE`.
+- **Volatilidade:** `IMMUTABLE` (só depende dos parâmetros, ex.: `fn_dias_atraso`), `STABLE` (lê tabelas, mas não altera nada, ex.: `fn_calcular_multa`) e `VOLATILE` (padrão; pode mudar dados ou dar resultados diferentes a cada chamada). Declarar certo ajuda o PostgreSQL a otimizar.
+- **Parâmetro com `DEFAULT`:** `p_data_referencia DATE DEFAULT CURRENT_DATE` — o padrão é calculado na chamada.
+- **`SELECT ... INTO` + `FOUND`:** carrega valores em variáveis e diz se achou alguma linha.
+- **`RAISE EXCEPTION`:** erro com mensagem clara em vez de devolver `NULL` silenciosamente.
+- **`COALESCE`, `GREATEST`, `ROUND`:** trata devolução nula, evita atraso negativo e arredonda para centavos.
+- **Testando erros:** bloco `DO` com `EXCEPTION WHEN raise_exception` para confirmar que o erro acontece. Conferi que o teste falha se a função deixar o atraso ficar negativo.
+
+### Para rodar hoje
+```bash
+psql -d locadora -f sql/05_funcoes.sql
+psql -d locadora -v ON_ERROR_STOP=1 -f testes/teste_05_funcoes.sql
+```
+Exercício: mude `fn_taxa_multa()` para devolver `2.0` e rode o teste. Quais asserts quebram? Por que os de "sem multa" continuam passando?
+
+### Perguntas de entrevista
+1. **Qual a diferença entre `IMMUTABLE`, `STABLE` e `VOLATILE`?**
+   `IMMUTABLE` sempre dá o mesmo resultado para os mesmos parâmetros e não lê tabelas; `STABLE` não altera dados e dá o mesmo resultado dentro de uma consulta, mas pode ler tabelas; `VOLATILE` pode mudar a cada chamada ou alterar dados. Por isso `fn_dias_atraso` é `IMMUTABLE` e `fn_calcular_multa`, que lê `locacao` e `filme`, é `STABLE`.
+
+2. **Por que colocar a regra da multa no banco e não na aplicação?**
+   Assim todo sistema que usa o banco (relatório, procedure, app) calcula igual, e a regra muda em um lugar só. A desvantagem é que lógica no banco é mais difícil de versionar e testar se não houver disciplina — por isso o script está no Git e tem testes automatizados. Em muitos times a regra fica na aplicação; o importante é não duplicar.
